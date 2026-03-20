@@ -6,7 +6,8 @@
     Direction="FlexDirection.Column"
     Expand="Expand"
     FillWidth="FillWidth"
-    FillHeight="FillHeight">
+    FillHeight="FillHeight"
+    @attributes="AdditionalAttributes">
     @ChildContent
 </Flex>
 
@@ -45,4 +46,7 @@
     /// </summary>
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object?>? AdditionalAttributes { get; set; }
 }
