@@ -9,6 +9,7 @@
 @if (Navigable)
 {
     <CascadingValue Name="TableNavSelectedIndex" Value="@(_isFocused ? (int?)DisplaySelectedIndex : null)">
+    <CascadingValue Name="TableNavRowClick" Value="@_rowClick" IsFixed="true">
         <tbody @onfocus="OnFocusHandler"
                @onfocusout="OnFocusOutHandler"
                @onkeydown="OnKeyDownHandler"
@@ -19,6 +20,7 @@
                @attributes="AdditionalAttributes">
             @ChildContent
         </tbody>
+    </CascadingValue>
     </CascadingValue>
 }
 else
@@ -112,6 +114,9 @@ else
     private int _selectedIndex;
     private bool _isFocused;
     private readonly string _focusKey = Guid.NewGuid().ToString("N");
+    private readonly Func<int, Task> _rowClick;
+
+    public SpectreTBody() => _rowClick = HandleRowClick;
 
     /// <summary>
     /// The focus manager key for this tbody, for use with <c>FocusManager.FocusAsync</c>.
@@ -196,6 +201,26 @@ else
         }
 
         ForwardKeyDown(e);
+    }
+
+    // Clicking a row selects it; clicking the selected row activates it, like Enter.
+    private async Task HandleRowClick(int index)
+    {
+        if (IsScrollableManaged)
+        {
+            await ScrollableSelection!.HandleRowClick(index);
+            return;
+        }
+
+        if (index < 0 || index >= RowCount) return;
+        if (index == _selectedIndex)
+        {
+            if (OnActivate.HasDelegate)
+                await OnActivate.InvokeAsync();
+            return;
+        }
+
+        await SetSelectedAsync(index);
     }
 
     private async Task SetSelectedAsync(int index)
