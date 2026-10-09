@@ -329,13 +329,22 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
     {
         private readonly Spectre.Console.LiveDisplayContext _context;
 
+        // Same reason as LiveDisplayCanvas: Spectre's live display is not thread safe and
+        // Refresh arrives from the animation timer and the resize handler.
+        private readonly Lock _sync = new();
+
         public LiveDisplayCanvasAdapter(Spectre.Console.LiveDisplayContext context)
         {
             _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         public void UpdateTarget(IRenderable? renderable)
-            => _context.UpdateTarget(renderable);
+        {
+            lock (_sync)
+            {
+                _context.UpdateTarget(renderable);
+            }
+        }
 
         public bool TryReplaceNode(IReadOnlyList<int> path, IRenderable renderable)
             => false;
@@ -348,7 +357,11 @@ public sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<ConsoleRe
 
         public void Refresh()
         {
-            _context.Refresh();
+            lock (_sync)
+            {
+                _context.Refresh();
+            }
+
             Refreshed?.Invoke();
         }
 
