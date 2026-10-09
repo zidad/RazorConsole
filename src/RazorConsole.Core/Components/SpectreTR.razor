@@ -4,7 +4,7 @@
 @using Microsoft.AspNetCore.Components
 @using Spectre.Console
 
-<tr data-selected-bg="@SelectedBgAttr" @attributes="AdditionalAttributes">
+<tr data-selected-bg="@SelectedBgAttr" @onclick="OnClickHandler" @attributes="AdditionalAttributes">
     @ChildContent
 </tr>
 
@@ -44,6 +44,12 @@
 
     [CascadingParameter(Name = "TableNavSelectedIndex")]
     public int? TableNavSelectedIndex { get; set; }
+
+    [CascadingParameter(Name = "TableNavRowClick")]
+    public Func<int, Task>? TableNavRowClick { get; set; }
+
+    private Task OnClickHandler()
+        => RowIndex >= 0 && TableNavRowClick is not null ? TableNavRowClick(RowIndex) : Task.CompletedTask;
 
     private bool IsSelected => RowIndex >= 0 && TableNavSelectedIndex.HasValue && TableNavSelectedIndex.Value == RowIndex;
 

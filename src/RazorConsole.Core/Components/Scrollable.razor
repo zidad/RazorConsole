@@ -161,7 +161,8 @@
             EnsureSelectedVisible();
             _selectionCascade = new ScrollableSelection(
                 SelectedIndex - ScrollOffset,
-                HandleSelectionKeyDown);
+                HandleSelectionKeyDown,
+                HandleRowClick);
         }
         else
         {
@@ -223,6 +224,21 @@
         await SelectAsync(newIndex);
     }
 
+    private async Task HandleRowClick(int relativeIndex)
+    {
+        var index = ScrollOffset + relativeIndex;
+        if (index < 0 || index >= Items.Count) return;
+
+        if (index == SelectedIndex)
+        {
+            if (OnActivate.HasDelegate)
+                await OnActivate.InvokeAsync();
+            return;
+        }
+
+        await SelectAsync(index);
+    }
+
     private async Task SelectAsync(int newIndex)
     {
         if (newIndex != SelectedIndex)
@@ -237,7 +253,8 @@
 
             _selectionCascade = new ScrollableSelection(
                 SelectedIndex - ScrollOffset,
-                HandleSelectionKeyDown);
+                HandleSelectionKeyDown,
+                HandleRowClick);
 
             StateHasChanged();
         }
