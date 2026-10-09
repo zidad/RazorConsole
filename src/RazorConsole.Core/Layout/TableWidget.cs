@@ -131,6 +131,17 @@ public sealed class TableWidget : Widget
         {
             cell.Child.Paint(context);
         }
+
+        foreach (var row in BodyRows)
+        {
+            if (row.Background is { } background)
+            {
+                foreach (var cell in row.Cells)
+                {
+                    context.Canvas.ApplyBackground(cell.Bounds, background);
+                }
+            }
+        }
     }
 
     public override LayoutBox CreateLayoutBox()
@@ -366,12 +377,15 @@ public sealed class TableWidget : Widget
 
 public sealed class TableWidgetRow
 {
-    public TableWidgetRow(IReadOnlyList<TableWidgetCell> cells)
+    public TableWidgetRow(IReadOnlyList<TableWidgetCell> cells, Color? background = null)
     {
         Cells = cells ?? throw new ArgumentNullException(nameof(cells));
+        Background = background;
     }
 
     public IReadOnlyList<TableWidgetCell> Cells { get; }
+
+    public Color? Background { get; }
 
     public LayoutRect Bounds { get; internal set; }
 }
