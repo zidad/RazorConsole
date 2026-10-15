@@ -28,6 +28,12 @@
 
 @code {
     private readonly string _generatedFocusKey = Guid.NewGuid().ToString("N");
+
+    /// <summary>
+    /// The focus manager key for this select, for use with FocusManager.FocusAsync.
+    /// </summary>
+    public string FocusKey => _generatedFocusKey;
+
     private readonly List<Func<Task>> _optionClickHandlers = [];
 
     // Keep delegates stable when focusing causes the parent to render again.
