@@ -115,6 +115,13 @@
     public EventCallback OnActivate { get; set; }
 
     /// <summary>
+    /// Raised with the selected index when the user presses Space in selection mode.
+    /// When bound, Space toggles instead of paging down, for multi-select lists.
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> OnToggle { get; set; }
+
+    /// <summary>
     /// Scrollbar settings. If provided, the scrollbar is enabled.
     /// </summary>
     [Parameter]
@@ -199,6 +206,9 @@
             case "UpArrow":
                 newIndex = Math.Max(newIndex - 1, 0);
                 break;
+            case " " when OnToggle.HasDelegate:
+                await OnToggle.InvokeAsync(SelectedIndex);
+                return;
             case "PageDown":
             case " ":
                 newIndex = Math.Min(newIndex + page, count - 1);
