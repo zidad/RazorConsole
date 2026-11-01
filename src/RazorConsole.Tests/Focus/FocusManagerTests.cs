@@ -566,6 +566,23 @@ public sealed class FocusManagerTests
     }
 
     [Fact]
+    public async Task FocusAsync_TargetNotYetRendered_SurvivesSnapshotWithoutFocusables()
+    {
+        var manager = new FocusManager();
+        var initial = CreateView(new[] { "first" }, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), initial, new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        (await manager.FocusAsync("later", CancellationToken.None)).ShouldBeFalse();
+        PushInitialSnapshot(manager, CreateView(Array.Empty<string>(), focusedKey: null));
+        PushInitialSnapshot(manager, CreateView(new[] { "first", "later" }, focusedKey: null));
+
+        manager.CurrentFocusKey.ShouldBe("later");
+    }
+
+    [Fact]
     public async Task FocusAsync_TargetNotYetRendered_IsCancelledByTabNavigation()
     {
         var manager = new FocusManager();
@@ -620,6 +637,62 @@ public sealed class FocusManagerTests
         PushInitialSnapshot(manager, CreateView(new[] { "first", "later" }, focusedKey: null));
 
         await Task.Delay(100, Xunit.TestContext.Current.CancellationToken);
+        manager.CurrentFocusKey.ShouldBe("later");
+    }
+
+    // The order AppHost and HeadlessTerminal start in: mount, subscribe, then begin the session with the mount's first frame.
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task BeginSession_AppliesFocusRequestForTargetRenderedAfterFirstFrame(bool renderedWhileMounting, bool requestedBeforeSubscribe)
+    {
+        using var renderer = TestHelpers.CreateTestRenderer();
+        var host = new LateTargetHost(renderedWhileMounting);
+        var manager = new FocusManager();
+
+        var initialView = ConsoleViewResult.FromSnapshot(
+            await renderer.MountComponentAsync(host, ParameterView.Empty, Xunit.TestContext.Current.CancellationToken));
+        if (!renderedWhileMounting)
+        {
+            await renderer.Dispatcher.InvokeAsync(host.ShowTarget);
+        }
+
+        if (requestedBeforeSubscribe)
+        {
+            await manager.FocusAsync(LateTargetHost.TargetKey, CancellationToken.None);
+        }
+
+        using var subscription = renderer.Subscribe(manager);
+        if (!requestedBeforeSubscribe)
+        {
+            await manager.FocusAsync(LateTargetHost.TargetKey, CancellationToken.None);
+        }
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), initialView, new VdomDiffService());
+        using var session = manager.BeginSession(context, initialView, CancellationToken.None);
+        await session.InitializationTask;
+
+        manager.CurrentFocusKey.ShouldBe(LateTargetHost.TargetKey);
+    }
+
+    [Fact]
+    public async Task OnNext_SnapshotOlderThanOneSeen_DoesNotMoveFocus()
+    {
+        var manager = new FocusManager();
+        var initial = CreateView(new[] { "first" }, focusedKey: null);
+
+        using var context = ConsoleLiveDisplayContext.CreateForTesting(new TestCanvas(), initial, new VdomDiffService());
+        using var session = manager.BeginSession(context, initial, CancellationToken.None);
+        await session.InitializationTask;
+
+        PushSnapshot(manager, ToSnapshot(CreateView(new[] { "first", "later" }, focusedKey: null), sequence: 2));
+        (await manager.FocusAsync("later", CancellationToken.None)).ShouldBeTrue();
+
+        // Subscribe replays the latest render while a notification for an earlier one can still be in flight.
+        PushSnapshot(manager, ToSnapshot(CreateView(new[] { "first" }, focusedKey: null), sequence: 1));
+
         manager.CurrentFocusKey.ShouldBe("later");
     }
 
@@ -735,6 +808,9 @@ public sealed class FocusManagerTests
     {
         ((IObserver<ConsoleRenderer.RenderSnapshot>)manager).OnNext(snapshot);
     }
+
+    private static ConsoleRenderer.RenderSnapshot ToSnapshot(ConsoleViewResult view, long sequence)
+        => new(view.VdomRoot, view.Renderable, view.AnimatedRenderables) { Sequence = sequence };
 
     private static bool HasFocusableCount(VNode? node, int expectedCount)
     {
@@ -891,6 +967,47 @@ public sealed class FocusManagerTests
                 builder.OpenComponent<FocusableLeaf>(3);
                 builder.SetKey("test");
                 builder.AddAttribute(4, nameof(FocusableLeaf.Label), "second");
+                builder.CloseComponent();
+            }
+
+            builder.CloseElement();
+        }
+    }
+
+    private sealed class LateTargetHost(bool showWhileMounting) : ComponentBase
+    {
+        public const string TargetKey = "late";
+
+        private bool _showTarget;
+
+        public void ShowTarget()
+        {
+            _showTarget = true;
+            StateHasChanged();
+        }
+
+        protected override async Task OnInitializedAsync()
+        {
+            if (showWhileMounting)
+            {
+                await Task.Yield();
+                _showTarget = true;
+            }
+        }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenElement(0, "div");
+
+            builder.OpenComponent<FocusableLeaf>(1);
+            builder.AddAttribute(2, nameof(FocusableLeaf.Label), "first");
+            builder.CloseComponent();
+
+            if (_showTarget)
+            {
+                builder.OpenComponent<FocusableLeaf>(3);
+                builder.SetKey(TargetKey);
+                builder.AddAttribute(4, nameof(FocusableLeaf.Label), "late");
                 builder.CloseComponent();
             }
 
