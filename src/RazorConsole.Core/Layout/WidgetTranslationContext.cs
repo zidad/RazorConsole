@@ -81,13 +81,15 @@ public sealed class WidgetTranslationContext
 
         if (IsTruthy(GetAttribute(node, "data-text")))
         {
+            var style = GetAttribute(node, "data-style");
             return new TextWidget(
                 node.ID,
                 GetTextContent(node),
-                TryParseStyle(GetAttribute(node, "data-style")),
+                TryParseStyle(style),
                 node.Key,
                 node.Attributes,
-                zIndex);
+                zIndex,
+                ComponentMarkupUtilities.ParseLink(style));
         }
 
         if (string.Equals(className, "figlet", StringComparison.OrdinalIgnoreCase))
@@ -131,6 +133,11 @@ public sealed class WidgetTranslationContext
         if (string.Equals(node.TagName, "hr", StringComparison.OrdinalIgnoreCase))
         {
             return new RuleWidget(node.ID, new Style(Color.Grey), node.Key, node.Attributes, zIndex);
+        }
+
+        if (ChartRenderableBuilder.TryCreate(node) is { } chart)
+        {
+            return new SpectreWidget(node.ID, chart, node.Key, node.Attributes, zIndex);
         }
 
         if (TryCreateSpectreFallbackWidget(node, zIndex) is { } fallbackWidget)
@@ -405,14 +412,7 @@ public sealed class WidgetTranslationContext
             return true;
         }
 
-        if (IsHtmlElementRequiringInlineOrBlockSemantics(node))
-        {
-            return true;
-        }
-
-        return string.Equals(node.TagName, "stepchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "barchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "breakdownchart", StringComparison.OrdinalIgnoreCase);
+        return IsHtmlElementRequiringInlineOrBlockSemantics(node);
     }
 
     private static bool IsFlexNode(VNode node, string? className)
@@ -448,6 +448,8 @@ public sealed class WidgetTranslationContext
         => string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
             && string.IsNullOrWhiteSpace(GetAttribute(node, "position"))
+            && string.IsNullOrWhiteSpace(GetAttribute(node, "data-layout"))
+            && !node.Attributes.ContainsKey(ConsoleRenderer.ComponentWrapperAttribute)
             && !node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
             && !node.Attributes.ContainsKey("data-focus-key");
 
@@ -872,7 +874,7 @@ public sealed class WidgetTranslationContext
     private static Style? TryParseHexStyle(string? value)
         => !string.IsNullOrWhiteSpace(value) && Color.TryFromHex(value, out var color)
             ? new Style(color)
-            : null;
+            : (Style?)null;
 
     private static bool IsScrollbarNode(VNode node)
         => node.Kind == VNodeKind.Element
