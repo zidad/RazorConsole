@@ -57,6 +57,11 @@ internal sealed class ConsoleRenderer(
 
     public override Dispatcher Dispatcher => _dispatcher;
 
+#if NET9_0_OR_GREATER
+    /// <summary>The console renderer is interactive: components handle events as soon as they render.</summary>
+    protected override RendererInfo RendererInfo { get; } = new("Console", isInteractive: true);
+#endif
+
     internal Translation.Contexts.TranslationContext GetTranslationContext() => _translationContext;
 
     internal RenderSnapshot RefreshSnapshot()
@@ -693,9 +698,13 @@ internal sealed class ConsoleRenderer(
         }
     }
 
+    /// <summary>Marks the div that groups a component's multiple root nodes; it is not authored markup.</summary>
+    internal const string ComponentWrapperAttribute = "data-component-wrapper";
+
     private static VNode CreateDivWrapper(List<VNode> children)
     {
         var wrapper = VNode.CreateElement("div");
+        wrapper.SetAttribute(ComponentWrapperAttribute, "true");
         foreach (var child in children)
         {
             wrapper.AddChild(child);

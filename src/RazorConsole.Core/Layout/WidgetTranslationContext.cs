@@ -133,6 +133,11 @@ public sealed class WidgetTranslationContext
             return new RuleWidget(node.ID, new Style(Color.Grey), node.Key, node.Attributes, zIndex);
         }
 
+        if (ChartRenderableBuilder.TryCreate(node) is { } chart)
+        {
+            return new SpectreWidget(node.ID, chart, node.Key, node.Attributes, zIndex);
+        }
+
         if (TryCreateSpectreFallbackWidget(node, zIndex) is { } fallbackWidget)
         {
             return fallbackWidget;
@@ -405,14 +410,7 @@ public sealed class WidgetTranslationContext
             return true;
         }
 
-        if (IsHtmlElementRequiringInlineOrBlockSemantics(node))
-        {
-            return true;
-        }
-
-        return string.Equals(node.TagName, "stepchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "barchart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(node.TagName, "breakdownchart", StringComparison.OrdinalIgnoreCase);
+        return IsHtmlElementRequiringInlineOrBlockSemantics(node);
     }
 
     private static bool IsFlexNode(VNode node, string? className)
@@ -448,6 +446,8 @@ public sealed class WidgetTranslationContext
         => string.Equals(node.TagName, "div", StringComparison.OrdinalIgnoreCase)
             && string.IsNullOrWhiteSpace(GetAttribute(node, "class"))
             && string.IsNullOrWhiteSpace(GetAttribute(node, "position"))
+            && string.IsNullOrWhiteSpace(GetAttribute(node, "data-layout"))
+            && !node.Attributes.ContainsKey(ConsoleRenderer.ComponentWrapperAttribute)
             && !node.Attributes.ContainsKey(IVNodeIdAccessor.HookAttributeName)
             && !node.Attributes.ContainsKey("data-focus-key");
 
