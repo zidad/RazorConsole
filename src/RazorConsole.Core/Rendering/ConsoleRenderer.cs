@@ -876,13 +876,22 @@ internal sealed class ConsoleRenderer(
 
         try
         {
-            return Dispatcher.InvokeAsync(() => base.DispatchEventAsync(handlerId, default, eventArgs));
+            // On the dispatcher (e.g. from OnAfterRender) a batch may be in progress: Blazor would apply its diffs again in a nested batch.
+            return Dispatcher.CheckAccess()
+                ? DispatchEventAfterCurrentWorkAsync(handlerId, eventArgs)
+                : Dispatcher.InvokeAsync(() => base.DispatchEventAsync(handlerId, default, eventArgs));
         }
         catch (Exception ex)
         {
             _logger.LogErrorDispatchingEvent(ex, handlerId);
             throw;
         }
+    }
+
+    private async Task DispatchEventAfterCurrentWorkAsync(ulong handlerId, EventArgs eventArgs)
+    {
+        await Task.Yield();
+        await base.DispatchEventAsync(handlerId, default, eventArgs).ConfigureAwait(false);
     }
 
     private void CompleteObservers()
