@@ -81,13 +81,15 @@ public sealed class WidgetTranslationContext
 
         if (IsTruthy(GetAttribute(node, "data-text")))
         {
+            var style = GetAttribute(node, "data-style");
             return new TextWidget(
                 node.ID,
                 GetTextContent(node),
-                TryParseStyle(GetAttribute(node, "data-style")),
+                TryParseStyle(style),
                 node.Key,
                 node.Attributes,
-                zIndex);
+                zIndex,
+                ComponentMarkupUtilities.ParseLink(style));
         }
 
         if (string.Equals(className, "figlet", StringComparison.OrdinalIgnoreCase))
@@ -872,7 +874,7 @@ public sealed class WidgetTranslationContext
     private static Style? TryParseHexStyle(string? value)
         => !string.IsNullOrWhiteSpace(value) && Color.TryFromHex(value, out var color)
             ? new Style(color)
-            : null;
+            : (Style?)null;
 
     private static bool IsScrollbarNode(VNode node)
         => node.Kind == VNodeKind.Element

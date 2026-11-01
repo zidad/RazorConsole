@@ -73,7 +73,7 @@ internal static class ChartRenderableBuilder
         {
             barChart.Label = label;
             var labelStyleAttributes = VdomSpectreTranslator.GetAttribute(node, "data-label-style");
-            if (!string.IsNullOrEmpty(labelStyleAttributes) && Style.TryParse(labelStyleAttributes, out var labelStyle) && labelStyle is not null)
+            if (!string.IsNullOrEmpty(labelStyleAttributes) && Style.TryParse(labelStyleAttributes, out var labelStyle))
             {
                 barChart.Label = $"[{labelStyle.ToMarkup()}]{label}[/]";
             }
