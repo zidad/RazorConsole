@@ -81,13 +81,15 @@ public sealed class WidgetTranslationContext
 
         if (IsTruthy(GetAttribute(node, "data-text")))
         {
+            var style = GetAttribute(node, "data-style");
             return new TextWidget(
                 node.ID,
                 GetTextContent(node),
-                TryParseStyle(GetAttribute(node, "data-style")),
+                TryParseStyle(style),
                 node.Key,
                 node.Attributes,
-                zIndex);
+                zIndex,
+                ComponentMarkupUtilities.ParseLink(style));
         }
 
         if (string.Equals(className, "figlet", StringComparison.OrdinalIgnoreCase))
@@ -809,7 +811,8 @@ public sealed class WidgetTranslationContext
             TryParseHexStyle(GetAttribute(node, "data-border-color")),
             node.Key,
             node.Attributes,
-            zIndex);
+            zIndex,
+            !string.Equals(GetAttribute(node, "data-column-separators"), "false", StringComparison.OrdinalIgnoreCase));
     }
 
     private TableWidgetRow CreateTableWidgetRow(VNode row, bool isHeader)
@@ -874,7 +877,7 @@ public sealed class WidgetTranslationContext
     private static Style? TryParseHexStyle(string? value)
         => !string.IsNullOrWhiteSpace(value) && ColorAttribute.TryParse(value, out var color)
             ? new Style(color)
-            : null;
+            : (Style?)null;
 
     private static bool IsScrollbarNode(VNode node)
         => node.Kind == VNodeKind.Element

@@ -208,8 +208,8 @@ public sealed class WidgetLayoutTests
     {
         var table = CreateSimpleTableNode();
         var bodyRow = table.Children[1].Children[0];
-        bodyRow.SetAttribute("data-selected-bg", "000080");
-        bodyRow.SetAttribute("data-selected-fg", "ffffff");
+        bodyRow.SetAttribute("data-selected-bg", "navy");
+        bodyRow.SetAttribute("data-selected-fg", "white");
 
         var widget = new WidgetTranslationContext().Translate(table);
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
@@ -217,9 +217,9 @@ public sealed class WidgetLayoutTests
         result.Root.Paint(new PaintContext(canvas));
 
         canvas[2, 3].Text.ShouldBe("R");
-        (canvas[2, 3].Style?.Foreground ?? Color.Default).ShouldBe(new Color(255, 255, 255));
-        (canvas[2, 3].Style?.Background ?? Color.Default).ShouldBe(new Color(0, 0, 128));
-        (canvas[0, 3].Style?.Foreground ?? Color.Default).ShouldNotBe(new Color(255, 255, 255));
+        canvas[2, 3].Style?.Foreground.ToMarkup().ShouldBe("white");
+        canvas[2, 3].Style?.Background.ToMarkup().ShouldBe("navy");
+        (canvas[0, 3].Style?.Foreground ?? Color.Default).ToMarkup().ShouldNotBe("white");
     }
 
     [Fact]
@@ -483,6 +483,51 @@ public sealed class WidgetLayoutTests
             "├───────────┼──────┤\n" +
             "│ README.md │ File │\n" +
             "╰───────────┴──────╯");
+    }
+
+    [Fact]
+    public void TableWidget_WithoutColumnSeparators_DrawsOnlyTheOuterBorderAndHeaderRule()
+    {
+        var widget = new TableWidget(
+            "table-1",
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("th-1", new TextWidget("text-1", "Name"), HorizontalAlignment.Center),
+                    new TableWidgetCell("th-2", new TextWidget("text-2", "Type"), HorizontalAlignment.Center),
+                ]),
+            ],
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("td-1", new TextWidget("text-3", "README.md")),
+                    new TableWidgetCell("td-2", new TextWidget("text-4", "File")),
+                ]),
+            ],
+            columnSeparators: false);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 40, 0, 10));
+
+        result.Size.ShouldBe(new LayoutSize(20, 5));
+        RenderToText(result.PaintToRenderable(), maxWidth: 40).ShouldBe(
+            "╭──────────────────╮\n" +
+            "│   Name      Type │\n" +
+            "├──────────────────┤\n" +
+            "│ README.md   File │\n" +
+            "╰──────────────────╯");
+    }
+
+    [Fact]
+    public void Translate_TableWithColumnSeparatorsFalse_HidesTheColumnLines()
+    {
+        var services = new ServiceCollection();
+        services.AddRazorConsoleServices();
+        using var serviceProvider = services.BuildServiceProvider();
+        var context = serviceProvider.GetRequiredService<WidgetTranslationContext>();
+        var table = CreateSimpleTableNode();
+        table.SetAttribute("data-column-separators", "false");
+
+        context.Translate(table).ShouldBeOfType<TableWidget>().ColumnSeparators.ShouldBeFalse();
     }
 
     [Fact]
