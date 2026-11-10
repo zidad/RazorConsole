@@ -208,8 +208,8 @@ public sealed class WidgetLayoutTests
     {
         var table = CreateSimpleTableNode();
         var bodyRow = table.Children[1].Children[0];
-        bodyRow.SetAttribute("data-selected-bg", "000080");
-        bodyRow.SetAttribute("data-selected-fg", "ffffff");
+        bodyRow.SetAttribute("data-selected-bg", "navy");
+        bodyRow.SetAttribute("data-selected-fg", "white");
 
         var widget = new WidgetTranslationContext().Translate(table);
         var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 10));
@@ -217,9 +217,9 @@ public sealed class WidgetLayoutTests
         result.Root.Paint(new PaintContext(canvas));
 
         canvas[2, 3].Text.ShouldBe("R");
-        (canvas[2, 3].Style?.Foreground ?? Color.Default).ShouldBe(new Color(255, 255, 255));
-        (canvas[2, 3].Style?.Background ?? Color.Default).ShouldBe(new Color(0, 0, 128));
-        (canvas[0, 3].Style?.Foreground ?? Color.Default).ShouldNotBe(new Color(255, 255, 255));
+        canvas[2, 3].Style?.Foreground.ToMarkup().ShouldBe("white");
+        canvas[2, 3].Style?.Background.ToMarkup().ShouldBe("navy");
+        (canvas[0, 3].Style?.Foreground ?? Color.Default).ToMarkup().ShouldNotBe("white");
     }
 
     [Fact]
@@ -298,6 +298,23 @@ public sealed class WidgetLayoutTests
         flex.Direction.ShouldBe(FlexDirection.Row);
         flex.Gap.ShouldBe(1);
         RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("A B");
+    }
+
+    [Fact]
+    public void WidgetTranslationContext_TranslatesColumnsWithTheirGap()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetAttribute("class", "columns");
+        node.SetAttribute("data-gap", "3");
+        node.AddChild(VNode.CreateText("A"));
+        node.AddChild(VNode.CreateText("B"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
+
+        widget.ShouldBeOfType<FlexWidget>().Gap.ShouldBe(3);
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("A   B");
     }
 
     [Fact]
