@@ -6,7 +6,7 @@
 <Flex Class="columns"
     Direction="FlexDirection.Row"
     Align="FlexAlign.Stretch"
-    Gap="1"
+    Gap="Gap"
     Expand="Expand"
     FillWidth="FillWidth"
     FillHeight="FillHeight">
@@ -30,6 +30,12 @@
     /// </summary>
     [Parameter]
     public bool Expand { get; set; } = false;
+
+    /// <summary>
+    /// Blank cells between columns. Default is <c>1</c>.
+    /// </summary>
+    [Parameter]
+    public int Gap { get; set; } = 1;
 
     /// <summary>
     /// Whether columns should fill the width offered by their parent.

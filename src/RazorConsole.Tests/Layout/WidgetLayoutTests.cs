@@ -301,6 +301,23 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void WidgetTranslationContext_TranslatesColumnsWithTheirGap()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetAttribute("class", "columns");
+        node.SetAttribute("data-gap", "3");
+        node.AddChild(VNode.CreateText("A"));
+        node.AddChild(VNode.CreateText("B"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
+
+        widget.ShouldBeOfType<FlexWidget>().Gap.ShouldBe(3);
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("A   B");
+    }
+
+    [Fact]
     public void WidgetTranslationContext_TranslatesFlexPrimitive()
     {
         var node = VNode.CreateElement("div");

@@ -213,7 +213,7 @@ public sealed class WidgetTranslationContext
                 children,
                 direction: FlexDirection.Row,
                 align: FlexAlign.Stretch,
-                gap: 1,
+                gap: Math.Max(0, TryGetIntAttribute(node, "data-gap", 1)),
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
                 fillWidth: IsTruthy(GetAttribute(node, "data-fill-width")),
                 fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
