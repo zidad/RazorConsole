@@ -301,6 +301,23 @@ public sealed class WidgetLayoutTests
     }
 
     [Fact]
+    public void WidgetTranslationContext_TranslatesColumnsWithTheirGap()
+    {
+        var node = VNode.CreateElement("div");
+        node.SetAttribute("class", "columns");
+        node.SetAttribute("data-gap", "3");
+        node.AddChild(VNode.CreateText("A"));
+        node.AddChild(VNode.CreateText("B"));
+        var context = new WidgetTranslationContext();
+
+        var widget = context.Translate(node);
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 20, 0, 5));
+
+        widget.ShouldBeOfType<FlexWidget>().Gap.ShouldBe(3);
+        RenderToText(result.PaintToRenderable(), maxWidth: 20).ShouldBe("A   B");
+    }
+
+    [Fact]
     public void WidgetTranslationContext_TranslatesFlexPrimitive()
     {
         var node = VNode.CreateElement("div");
@@ -502,6 +519,82 @@ public sealed class WidgetLayoutTests
             "├───────────┼──────┤\n" +
             "│ README.md │ File │\n" +
             "╰───────────┴──────╯");
+    }
+
+    [Fact]
+    public void TableWidget_WithoutColumnSeparators_DrawsOnlyTheOuterBorderAndHeaderRule()
+    {
+        var widget = new TableWidget(
+            "table-1",
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("th-1", new TextWidget("text-1", "Name"), HorizontalAlignment.Center),
+                    new TableWidgetCell("th-2", new TextWidget("text-2", "Type"), HorizontalAlignment.Center),
+                ]),
+            ],
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("td-1", new TextWidget("text-3", "README.md")),
+                    new TableWidgetCell("td-2", new TextWidget("text-4", "File")),
+                ]),
+            ],
+            columnSeparators: false);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 40, 0, 10));
+
+        result.Size.ShouldBe(new LayoutSize(20, 5));
+        RenderToText(result.PaintToRenderable(), maxWidth: 40).ShouldBe(
+            "╭──────────────────╮\n" +
+            "│   Name      Type │\n" +
+            "├──────────────────┤\n" +
+            "│ README.md   File │\n" +
+            "╰──────────────────╯");
+    }
+
+    [Fact]
+    public void TableWidget_WithoutColumnSeparators_HeaderlessWithThreeColumns_LeavesEveryGapBlank()
+    {
+        var widget = new TableWidget(
+            "table-1",
+            [],
+            [
+                new TableWidgetRow(
+                [
+                    new TableWidgetCell("td-1", new TextWidget("text-1", "a")),
+                    new TableWidgetCell("td-2", new TextWidget("text-2", "bb")),
+                    new TableWidgetCell("td-3", new TextWidget("text-3", "ccc")),
+                ]),
+            ],
+            columnSeparators: false);
+
+        var result = new LayoutEngine().Layout(widget, new BoxConstraints(0, 40, 0, 10));
+
+        RenderToText(result.PaintToRenderable(), maxWidth: 40).ShouldBe(
+            "╭──────────────╮\n" +
+            "│ a   bb   ccc │\n" +
+            "╰──────────────╯");
+    }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("true", true)]
+    [InlineData("false", false)]
+    [InlineData("FALSE", false)]
+    public void Translate_TableColumnSeparatorsAttribute_SetsColumnSeparators(string? value, bool expected)
+    {
+        var services = new ServiceCollection();
+        services.AddRazorConsoleServices();
+        using var serviceProvider = services.BuildServiceProvider();
+        var context = serviceProvider.GetRequiredService<WidgetTranslationContext>();
+        var table = CreateSimpleTableNode();
+        if (value is not null)
+        {
+            table.SetAttribute("data-column-separators", value);
+        }
+
+        context.Translate(table).ShouldBeOfType<TableWidget>().ColumnSeparators.ShouldBe(expected);
     }
 
     [Fact]

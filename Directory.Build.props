@@ -7,6 +7,8 @@
     <LangVersion>latest</LangVersion>
     <UseArtifactsOutput>true</UseArtifactsOutput>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- ASP.NET Core 11's BL0012 flags StateHasChanged in handlers that also run outside event dispatch (ScrollContext.KeyDownEventHandler). -->
+    <NoWarn>$(NoWarn);BL0012</NoWarn>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
     <HotReloadAutoRestart>true</HotReloadAutoRestart>

@@ -476,7 +476,10 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
 
         if (targets.Count == 0)
         {
-            ResetState_NoLock();
+            // Keeps the session and a pending request: its target can still render.
+            _focusTargets = targets;
+            _currentIndex = -1;
+            CurrentFocusKey = null;
 
             return null;
         }
@@ -513,15 +516,17 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         });
 
         _focusTargets = targets;
-        var currentFocusTarget = matchIndex >= 0
-            ? _focusTargets[matchIndex]
-            : _focusTargets[0];
 
         if (matchIndex >= 0)
         {
             _currentIndex = matchIndex;
             CurrentFocusKey = _focusTargets[matchIndex].Key;
-            return previousFocusTarget == currentFocusTarget ? null : currentFocusTarget;
+
+            // Snapshots clone the tree, but an element updated in place keeps its ID: focus did not change.
+            // Dispatching focus to it again re-renders a component whose focus handler renders, forever.
+            // A new ID is a new element at the same key (e.g. a changed @key), which has to learn it has focus.
+            var matched = _focusTargets[matchIndex];
+            return matched.VNodeId == previousFocusTarget.VNodeId ? null : matched;
         }
 
         _currentIndex = 0;
@@ -533,8 +538,9 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     {
         var targets = new List<FocusTarget>();
         var path = new List<int> { 0 };
+        var ancestors = new List<VNode>();
         var sequence = 0;
-        CollectRecursive(root, path, targets, ref sequence);
+        CollectRecursive(root, path, ancestors, targets, ref sequence);
 
         // Sort by focus order if specified, maintaining DOM order for elements with same/no order
         targets = targets
@@ -555,20 +561,23 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         return targets;
     }
 
-    private static void CollectRecursive(VNode node, List<int> path, List<FocusTarget> targets, ref int sequence)
+    private static void CollectRecursive(VNode node, List<int> path, List<VNode> ancestors, List<FocusTarget> targets, ref int sequence)
     {
         if (node.Kind == VNodeKind.Element && IsFocusable(node))
         {
-            targets.Add(new FocusTarget(node, [.. path]));
+            targets.Add(new FocusTarget(node, [.. path], [.. ancestors]));
         }
 
+        ancestors.Add(node);
         var children = node.Children;
         for (var i = 0; i < children.Count; i++)
         {
             path.Add(i);
-            CollectRecursive(children[i], path, targets, ref sequence);
+            CollectRecursive(children[i], path, ancestors, targets, ref sequence);
             path.RemoveAt(path.Count - 1);
         }
+
+        ancestors.RemoveAt(ancestors.Count - 1);
     }
 
     private static bool IsFocusable(VNode element)
@@ -682,11 +691,13 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
     {
         private readonly VNode _vnode;
         private readonly int[] _path;
+        private readonly VNode[] _ancestors;
 
-        public FocusTarget(VNode vnode, int[] path)
+        public FocusTarget(VNode vnode, int[] path, VNode[] ancestors)
         {
             _vnode = vnode;
             _path = path;
+            _ancestors = ancestors;
 
             Key = ResolveKey(_vnode, _path);
         }
@@ -698,6 +709,18 @@ public sealed class FocusManager : IObserver<ConsoleRenderer.RenderSnapshot>
         public IReadOnlyDictionary<string, string?> Attributes => _vnode.Attributes;
 
         public IReadOnlyCollection<VNodeEvent> Events => _vnode.Events;
+
+        /// <summary>
+        /// Whether <c>@<paramref name="eventName"/>:preventDefault</c> is set on this element or an ancestor,
+        /// as an event bubbling through them would be. Razor compiles it to an attribute rather than an event option.
+        /// </summary>
+        public bool PreventsDefault(string eventName)
+            => PreventsDefault(_vnode, eventName) || _ancestors.Any(ancestor => PreventsDefault(ancestor, eventName));
+
+        private static bool PreventsDefault(VNode node, string eventName)
+            => node.Attributes.TryGetValue($"__internal_preventDefault_{eventName}", out var value)
+                && value is not null
+                && !value.Equals("false", StringComparison.OrdinalIgnoreCase);
 
         public bool Equals(FocusTarget? other)
         {

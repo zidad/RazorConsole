@@ -235,9 +235,11 @@ internal sealed class KeyboardEventManager
         // dispatch so the same key cannot also trigger default focus traversal.
         var managedKey = (keyInfo.Key != ConsoleKey.Tab || initialTarget.Attributes.GetValueOrDefault("data-manage-tab") == "true")
             && initialTarget.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true";
+        // Text entry stays: only focus traversal and activation are the terminal's defaults to prevent.
+        var preventDefault = (keyInfo.Key is ConsoleKey.Tab or ConsoleKey.Enter) && initialTarget.PreventsDefault("onkeydown");
         var handled = await DispatchKeyboardEventAsync(initialTarget, "onkeydown", keyInfo, token).ConfigureAwait(false);
 
-        if (managedKey || handled)
+        if (managedKey || handled || preventDefault)
         {
             await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
             return;
