@@ -267,7 +267,7 @@ internal sealed class KeyboardEventManager
                     await DispatchKeyboardEventAsync(initialTarget, "onkeypress", keyInfo, token).ConfigureAwait(false);
                 }
 
-                await HandleTextInputAsync(keyInfo, token).ConfigureAwait(false);
+                await HandleTextInputAsync(initialTarget, keyInfo, token).ConfigureAwait(false);
                 break;
         }
 
@@ -339,9 +339,11 @@ internal sealed class KeyboardEventManager
         }
     }
 
-    private async Task HandleTextInputAsync(ConsoleKeyInfo keyInfo, CancellationToken token)
+    private async Task HandleTextInputAsync(FocusManager.FocusTarget keyTarget, ConsoleKeyInfo keyInfo, CancellationToken token)
     {
-        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
+        // Type only into the element that received the key. When its keydown handler moved focus (for
+        // example by opening a dialog), the newly focused input must not get the key that opened it.
+        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null || target.Key != keyTarget.Key)
         {
             return;
         }
