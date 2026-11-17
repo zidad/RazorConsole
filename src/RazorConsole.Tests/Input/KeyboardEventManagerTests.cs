@@ -698,6 +698,21 @@ public class KeyboardEventManagerTests
     }
 
     [Fact]
+    public async Task Character_DoesNotReachTheInputFocusMovedTo()
+    {
+        await using var harness = await KeyboardHarness.CreateAsync(
+            new FocusElementSpec("first", events: new Dictionary<string, ulong> { ["onkeydown"] = 31 }),
+            new FocusElementSpec("second", events: new Dictionary<string, ulong> { ["oninput"] = 32 }));
+        // Like a list whose : opens a search dialog with its input focused.
+        harness.Dispatcher.OnDispatch = id => id == 31 ? harness.FocusManager.FocusAsync("second") : Task.CompletedTask;
+
+        await harness.Manager.HandleKeyAsync(new ConsoleKeyInfo(':', ConsoleKey.Oem1, true, false, false), CancellationToken.None);
+
+        harness.FocusManager.CurrentFocusKey.ShouldBe("second");
+        harness.Dispatcher.Events.ShouldNotContain(e => e.HandlerId == 32UL);
+    }
+
+    [Fact]
     public async Task ConsumedTab_DoesNotTraverse_WhenSnapshotDoesNotManageTab()
     {
         await using var harness = await KeyboardHarness.CreateAsync(
@@ -788,6 +803,11 @@ public class KeyboardEventManagerTests
         }
 
         public void Refresh()
+        {
+            Refreshed?.Invoke();
+        }
+
+        public void RefreshAnimationFrame()
         {
             Refreshed?.Invoke();
         }

@@ -33,7 +33,7 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
         VdomDiffService? diffService = null)
     {
         _canvas = canvas ?? throw new ArgumentNullException(nameof(canvas));
-        _animationTicker = new AnimationTicker(_canvas.Refresh);
+        _animationTicker = new AnimationTicker(_canvas.RefreshAnimationFrame);
         _terminalMonitor = terminalMonitor;
         _terminalMonitor.OnResized += HandleTerminalResize;
         _renderer = renderer;
@@ -219,6 +219,12 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
         /// </summary>
         void Refresh();
 
+        /// <summary>
+        /// Writes the next animation frame unless a write is in progress, which shows the animations' current frame already.
+        /// Must not block or throw.
+        /// </summary>
+        void RefreshAnimationFrame();
+
         event Action? Refreshed;
     }
 
@@ -239,6 +245,8 @@ internal sealed class ConsoleLiveDisplayContext : IDisposable, IObserver<Console
             _context.Refresh();
             Refreshed?.Invoke();
         }
+
+        public void RefreshAnimationFrame() => Refresh();
 
         public event Action? Refreshed;
     }

@@ -244,9 +244,11 @@ internal sealed class KeyboardEventManager
         // dispatch so the same key cannot also trigger default focus traversal.
         var managedKey = (keyInfo.Key != ConsoleKey.Tab || initialTarget.Attributes.GetValueOrDefault("data-manage-tab") == "true")
             && initialTarget.Attributes.TryGetValue("data-input-managed", out var managed) && managed == "true";
+        // Text entry stays: only focus traversal and activation are the terminal's defaults to prevent.
+        var preventDefault = (keyInfo.Key is ConsoleKey.Tab or ConsoleKey.Enter) && initialTarget.PreventsDefault("onkeydown");
         var handled = await DispatchKeyboardEventAsync(initialTarget, "onkeydown", keyInfo, token).ConfigureAwait(false);
 
-        if (managedKey || handled)
+        if (managedKey || handled || preventDefault)
         {
             await DispatchKeyboardEventAsync(initialTarget, "onkeyup", keyInfo, token).ConfigureAwait(false);
             return;
@@ -273,7 +275,7 @@ internal sealed class KeyboardEventManager
                     await DispatchKeyboardEventAsync(initialTarget, "onkeypress", keyInfo, token).ConfigureAwait(false);
                 }
 
-                await HandleTextInputAsync(keyInfo, token).ConfigureAwait(false);
+                await HandleTextInputAsync(initialTarget, keyInfo, token).ConfigureAwait(false);
                 break;
         }
 
@@ -345,9 +347,11 @@ internal sealed class KeyboardEventManager
         }
     }
 
-    private async Task HandleTextInputAsync(ConsoleKeyInfo keyInfo, CancellationToken token)
+    private async Task HandleTextInputAsync(FocusManager.FocusTarget keyTarget, ConsoleKeyInfo keyInfo, CancellationToken token)
     {
-        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null)
+        // Type only into the element that received the key. When its keydown handler moved focus (for
+        // example by opening a dialog), the newly focused input must not get the key that opened it.
+        if (!_focusManager.TryGetFocusedTarget(out var target) || target is null || target.Key != keyTarget.Key)
         {
             return;
         }

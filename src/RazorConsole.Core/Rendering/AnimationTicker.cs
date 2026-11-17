@@ -10,6 +10,8 @@ namespace RazorConsole.Core.Rendering;
 /// <remarks>
 /// Animated renderables pick their frame from the clock, so a single tick at the shortest
 /// interval refreshes all of them. The timer runs only while at least one animation is on screen.
+/// The next tick is scheduled when a tick has finished, so a frame that takes longer than the interval
+/// slows the animation down instead of queueing ticks.
 /// </remarks>
 internal sealed class AnimationTicker : IDisposable
 {
@@ -54,11 +56,11 @@ internal sealed class AnimationTicker : IDisposable
             }
             else if (_timer is null)
             {
-                _timer = new Timer(static state => ((AnimationTicker)state!).OnTick(), this, period, period);
+                _timer = new Timer(static state => ((AnimationTicker)state!).OnTick(), this, period, Timeout.InfiniteTimeSpan);
             }
             else
             {
-                _timer.Change(period, period);
+                _timer.Change(period, Timeout.InfiniteTimeSpan);
             }
         }
     }
@@ -97,6 +99,19 @@ internal sealed class AnimationTicker : IDisposable
         catch
         {
             // Ignore rendering exceptions from background updates.
+        }
+
+        ScheduleNextTick();
+    }
+
+    private void ScheduleNextTick()
+    {
+        lock (_sync)
+        {
+            if (_timer is not null && Interval is { } period)
+            {
+                _timer.Change(period, Timeout.InfiniteTimeSpan);
+            }
         }
     }
 

@@ -1,0 +1,17 @@
+@namespace RazorConsole.Tests.Integration.Fixtures
+@using Microsoft.AspNetCore.Components.Web
+@using RazorConsole.Components
+
+@* A component takes no event modifiers: the element around it prevents the key's default, as a bubbling event would. *@
+<Rows>
+    <div @onkeydown:preventDefault="PreventDefault">
+        <TextInput FocusOrder="0" OnInput="@(v => Events.Add($"input {v}"))" OnSubmit="@(_ => Events.Add("submit"))"
+                   @onkeydown="@(e => Events.Add(e.Key))" />
+    </div>
+    <TextInput FocusOrder="1" />
+</Rows>
+
+@code {
+    [Parameter] public List<string> Events { get; set; } = [];
+    [Parameter] public bool PreventDefault { get; set; }
+}

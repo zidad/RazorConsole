@@ -155,7 +155,8 @@ public sealed class WidgetTranslationContext
                 CreateFigletRenderable(node),
                 node.Key,
                 node.Attributes,
-                zIndex);
+                zIndex,
+                renderOnce: true);
         }
 
         if (string.Equals(node.TagName, "ul", StringComparison.OrdinalIgnoreCase)
@@ -228,7 +229,7 @@ public sealed class WidgetTranslationContext
                 children,
                 direction: FlexDirection.Row,
                 align: FlexAlign.Stretch,
-                gap: 1,
+                gap: Math.Max(0, TryGetIntAttribute(node, "data-gap", 1)),
                 expand: IsTruthy(GetAttribute(node, "data-expand")),
                 fillWidth: IsTruthy(GetAttribute(node, "data-fill-width")),
                 fillHeight: IsTruthy(GetAttribute(node, "data-fill-height")),
@@ -428,7 +429,7 @@ public sealed class WidgetTranslationContext
 
         return renderable is null
             ? null
-            : new SpectreWidget(node.ID, renderable, node.Key, node.Attributes, zIndex);
+            : new SpectreWidget(node.ID, renderable, node.Key, node.Attributes, zIndex, renderOnce: renderable is not IAnimatedConsoleRenderable);
     }
 
     private IRenderable? CreateLeafRenderable(VNode node, string? className)
@@ -552,7 +553,7 @@ public sealed class WidgetTranslationContext
         IReadOnlyList<VNode> run = isInlineElement ? [node] : node.Children;
         if (InlineMarkupBuilder.TryBuildFlowMarkup(run, out var markup) && TryCreateMarkup(markup) is { } inlineMarkup)
         {
-            return new SpectreWidget(node.ID, inlineMarkup, node.Key, node.Attributes, zIndex);
+            return new SpectreWidget(node.ID, inlineMarkup, node.Key, node.Attributes, zIndex, renderOnce: true);
         }
 
         // A paragraph holding components keeps its children side by side, wrapping when they do not fit.
@@ -759,7 +760,7 @@ public sealed class WidgetTranslationContext
             var model = _syntaxHighlightingService.Highlight(request);
             var body = new SyntaxRenderable(model);
             var renderable = new Rows(new IRenderable[] { new Markup(" "), body, new Markup(" ") });
-            return new SpectreWidget(node.ID, renderable, node.Key, node.Attributes, zIndex);
+            return new SpectreWidget(node.ID, renderable, node.Key, node.Attributes, zIndex, renderOnce: true);
         }
         catch (Exception)
         {
@@ -964,7 +965,8 @@ public sealed class WidgetTranslationContext
             TryParseHexStyle(GetAttribute(node, "data-border-color")),
             node.Key,
             node.Attributes,
-            zIndex);
+            zIndex,
+            !string.Equals(GetAttribute(node, "data-column-separators"), "false", StringComparison.OrdinalIgnoreCase));
     }
 
     private TableWidgetRow CreateTableWidgetRow(VNode row, bool isHeader)

@@ -532,8 +532,10 @@ public sealed class HeadlessTerminal : IAsyncDisposable
             _renderer,
             _terminalMonitor,
             view);
-        _focusSubscription = _renderer.Subscribe(_focusManager);
         _focusSession = _focusManager.BeginSession(_liveContext, view, _shutdown.Token);
+
+        // After the session begins: the replayed latest render brings its targets up to date.
+        _focusSubscription = _renderer.Subscribe(_focusManager);
         await _focusSession.InitializationTask.ConfigureAwait(false);
         Capture(_renderer.RefreshSnapshot());
 
@@ -712,6 +714,8 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
 
         public void Refresh() => Refreshed?.Invoke();
+
+        public void RefreshAnimationFrame() => Refreshed?.Invoke();
     }
 
     private sealed class AnsiOutputWriter : TextWriter

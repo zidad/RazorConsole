@@ -75,6 +75,36 @@ internal sealed class LiveDisplayCanvas(ConsoleLiveDisplayOptions options, IAnsi
         WriteRequestedRefreshes();
     }
 
+    public void RefreshAnimationFrame()
+    {
+        // A frame being written shows the animations as they are now; queueing another one behind it would
+        // keep the writer repainting for as long as a frame takes longer than the animation interval.
+        if (!_semaphore.Wait(0))
+        {
+            return;
+        }
+
+        try
+        {
+            if (_current is not null && !_disposed)
+            {
+                EnterAlternateScreenBufferIfNeeded();
+                WriteCurrent();
+                Refreshed?.Invoke();
+            }
+        }
+        catch
+        {
+            // Best effort, like Refresh: WriteCurrent already reset the diff state, so the next frame redraws everything.
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+
+        WriteRequestedRefreshes();
+    }
+
     // Writes the refreshes requested so far. Every path that holds the canvas lock calls this after
     // releasing it, so a request left while the lock was busy is never lost.
     private void WriteRequestedRefreshes()
