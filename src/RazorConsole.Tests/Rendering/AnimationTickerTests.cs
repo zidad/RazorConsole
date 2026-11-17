@@ -64,6 +64,32 @@ public sealed class AnimationTickerTests
     }
 
     [Fact]
+    public async Task Tick_SlowerThanInterval_NeverOverlapsTheNextTick()
+    {
+        var running = 0;
+        var maxRunning = 0;
+        var ticks = 0;
+        var threeTicks = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var ticker = new AnimationTicker(() =>
+        {
+            var now = Interlocked.Increment(ref running);
+            InterlockedMax(ref maxRunning, now);
+            Thread.Sleep(TimeSpan.FromMilliseconds(100));
+            Interlocked.Decrement(ref running);
+            if (Interlocked.Increment(ref ticks) == 3)
+            {
+                threeTicks.TrySetResult();
+            }
+        });
+
+        ticker.Update([new FakeAnimation(AnimationTicker.MinimumInterval)]);
+        await threeTicks.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        ticker.Update([]);
+
+        maxRunning.ShouldBe(1);
+    }
+
+    [Fact]
     public void Dispose_StopsTicker()
     {
         var ticker = new AnimationTicker(static () => { });
@@ -102,6 +128,21 @@ public sealed class AnimationTickerTests
         context.AnimationInterval.ShouldBeNull();
     }
 
+    private static void InterlockedMax(ref int target, int value)
+    {
+        var current = Volatile.Read(ref target);
+        while (value > current)
+        {
+            var seen = Interlocked.CompareExchange(ref target, value, current);
+            if (seen == current)
+            {
+                return;
+            }
+
+            current = seen;
+        }
+    }
+
     private static ConsoleViewResult CreateView(string text, IReadOnlyCollection<IAnimatedConsoleRenderable> animations)
     {
         var root = VNode.CreateElement("div");
@@ -128,6 +169,8 @@ public sealed class AnimationTickerTests
         }
 
         public void Refresh() => Refreshed?.Invoke();
+
+        public void RefreshAnimationFrame() => Refreshed?.Invoke();
 
         public event Action? Refreshed;
     }

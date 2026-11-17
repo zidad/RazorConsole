@@ -710,6 +710,8 @@ public sealed class HeadlessTerminal : IAsyncDisposable
         }
 
         public void Refresh() => Refreshed?.Invoke();
+
+        public void RefreshAnimationFrame() => Refreshed?.Invoke();
     }
 
     private sealed class AnsiOutputWriter : TextWriter

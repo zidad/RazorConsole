@@ -865,6 +865,11 @@ public sealed class FocusManagerTests
             Refreshed?.Invoke();
         }
 
+        public void RefreshAnimationFrame()
+        {
+            Refreshed?.Invoke();
+        }
+
         public event Action? Refreshed;
     }
 

@@ -792,6 +792,11 @@ public class KeyboardEventManagerTests
             Refreshed?.Invoke();
         }
 
+        public void RefreshAnimationFrame()
+        {
+            Refreshed?.Invoke();
+        }
+
         public event Action? Refreshed;
     }
 

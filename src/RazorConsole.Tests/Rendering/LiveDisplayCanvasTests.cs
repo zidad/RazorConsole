@@ -178,6 +178,42 @@ public sealed class LiveDisplayCanvasTests
     }
 
     [Fact]
+    public async Task RefreshAnimationFrame_DuringWrite_IsSkippedWithoutQueueingAnotherFrame()
+    {
+        var writes = 0;
+        using var writeStarted = new ManualResetEventSlim();
+        using var releaseWrite = new ManualResetEventSlim(true);
+        var console = Substitute.For<IAnsiConsole>();
+        console.When(static console => console.Write(Arg.Any<IRenderable>()))
+            .Do(_ =>
+            {
+                Interlocked.Increment(ref writes);
+                writeStarted.Set();
+                releaseWrite.Wait(TimeSpan.FromSeconds(10));
+            });
+        using var canvas = new LiveDisplayCanvas(new ConsoleLiveDisplayOptions { UseAlternateScreenBuffer = false }, console);
+        canvas.UpdateTarget(new TextRenderable("hello"));
+
+        writeStarted.Reset();
+        releaseWrite.Reset();
+        var slowUpdate = Task.Run(() => canvas.UpdateTarget(new TextRenderable("world")), TestContext.Current.CancellationToken);
+        writeStarted.Wait(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken).ShouldBeTrue();
+
+        for (var i = 0; i < 20; i++)
+        {
+            canvas.RefreshAnimationFrame();
+        }
+
+        releaseWrite.Set();
+        await slowUpdate.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        writes.ShouldBe(2);
+
+        canvas.RefreshAnimationFrame();
+        writes.ShouldBe(3);
+    }
+
+    [Fact]
     public async Task UpdateTarget_DropsErrorsFromRefreshesQueuedByOtherCallers()
     {
         var writes = 0;
